@@ -1,6 +1,8 @@
 import logging
 from typing import Dict
 from telegram import __version__ as TG_VER
+import requests
+from config import app_id, app_key
 try:
     from telegram import __version_info__
 except ImportError:
@@ -20,7 +22,7 @@ from telegram.ext import (Application, CommandHandler, ContextTypes, Conversatio
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-BASE_CHOOSING, BASE_EXPENSE, BASE_WATER, CREDIT_EXPENSE_BASE, DEBIT_EXPENSE_BASE, CASH_EXPENSE_BASE, EXPENSE_VALUE, RECIEVED_EXPENSE_VALUE, RECIEVED_PURSPOSE, FOOD_NAME, GET_CALORIES = range(10)
+BASE_CHOOSING, BASE_EXPENSE, BASE_WATER, CREDIT_EXPENSE_BASE, DEBIT_EXPENSE_BASE, CASH_EXPENSE_BASE, EXPENSE_VALUE, RECIEVED_EXPENSE_VALUE, RECIEVED_PURSPOSE, FOOD_NAME, GET_CALORIES, RECIEVED_CALORIES, RECIVED_FOOD_NAME, GET_FOOD_NAME = range(14)
 
 """
 KEYBOARD MARKUPS
@@ -92,17 +94,59 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 """
 FOOD
 """
-async def food_base(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text(
-        "How much did you spend?"
-    )
-    return FOOD_NAME
+# async def food_base(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+#     await update.message.reply_text(
+#         "How much did you spend?"
+#     )
+#     return FOOD_NAME
 
 async def know_calories(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # BASE_CHOOSING
     await update.message.reply_text(
         "Do you know the number of calories?", reply_markup=know_calories_markup
     )
     return GET_CALORIES
+
+async def get_calories(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # GET_CALORIES
+    await update.message.reply_text(
+        "How many calories did you eat?"
+    )
+    return RECIEVED_CALORIES
+
+async def store_food_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # GET_FOOD_NAME
+    food_name = update.message.text
+    context.user_data['food_name'] = food_name
+    global latest_food
+    latest_food = food_name
+    # if context.user_data['calories']:
+    if 'calories' in context.user_data:
+        await update.message.reply_text(
+        f"Added {food_name} to your food. Calories: {context.user_data['calories']}"
+        )
+    else:
+        url = f'https://api.edamam.com/api/food-database/v2/parser?ingr={food_name}&app_id={app_id}&app_key={app_key}'
+        response = requests.get(url)
+        data = response.json()
+        calories = data['hints'][0]['food']['nutrients']['ENERC_KCAL']
+        # quantity = data['hints'][0]['measures'][0]['label']
+        await update.message.reply_text(
+        f"Added {food_name} to your food. Calories: {calories}"
+        )
+    return ConversationHandler.END
+
+async def user_entered_calories(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # RECIEVED_CALORIES 
+    calories = update.message.text
+    calories = int(calories)
+    context.user_data['calories'] = calories
+    await update.message.reply_text(
+        "What did you have?"
+    )
+    return GET_FOOD_NAME
+
+# async def calculate_calories(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 
@@ -201,7 +245,7 @@ def main() -> None:
         entry_points=[CommandHandler("start", start)],
         states = {
             BASE_CHOOSING: [
-                MessageHandler(filters.Regex("^Food$"), food_base),
+                MessageHandler(filters.Regex("^Food$"), know_calories),
                 MessageHandler(filters.Regex("^Expenses$"), expense),
                 MessageHandler(filters.Regex("^Activity$"), done),
                 MessageHandler(filters.Regex("^Water$"), water),
@@ -253,16 +297,19 @@ def main() -> None:
                 MessageHandler(
                     filters.TEXT & ~(filters.COMMAND | filters.Regex("^Done$")), done)
                 ],
-            FOOD_NAME: [
-                MessageHandler(
-                    filters.TEXT & ~(filters.COMMAND | filters.Regex("^Done$")), get_food_calories)
-                ], 
             GET_CALORIES: [
-                MessageHandler(
-                    MessageHandler(filters.Regex("^Shopping$"), get_expense_value),
-                    MessageHandler(filters.Regex("^Other$"), get_expense_value),
-                    MessageHandler(filters.Regex("^Go Back$"), expense),
-            ]
+                    MessageHandler(filters.Regex("^Yes$"), get_calories),
+                    MessageHandler(filters.Regex("^No$"), store_food_info),
+                    MessageHandler(filters.Regex("^Go Back$"), start)
+                ],
+            GET_FOOD_NAME: [
+                    MessageHandler(
+                    filters.TEXT & ~(filters.COMMAND | filters.Regex("^Done$")), store_food_info)
+                ],
+            RECIEVED_CALORIES: [
+                    MessageHandler(
+                    filters.TEXT & ~(filters.COMMAND | filters.Regex("^Done$")), user_entered_calories)    
+                ],
                 },
         fallbacks = [MessageHandler(filters.Regex("^Done$"), done)],
     )    
