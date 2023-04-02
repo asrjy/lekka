@@ -2,7 +2,7 @@ import logging
 from typing import Dict
 from telegram import __version__ as TG_VER
 import requests
-from config import app_id, app_key
+from config import app_id, app_key, bot_key
 try:
     from telegram import __version_info__
 except ImportError:
@@ -240,7 +240,7 @@ async def water(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 MAIN
 """
 def main() -> None:
-    application = Application.builder().token("6122563729:AAEBbAnIFYAeMczk6e3yfdS8zLI6OzCYL8Y").build()
+    application = Application.builder().token(f"{bot_key}").build()
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states = {
