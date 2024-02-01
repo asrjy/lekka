@@ -132,7 +132,7 @@ async def store_food_info(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         calories = data['hints'][0]['food']['nutrients']['ENERC_KCAL']
         # quantity = data['hints'][0]['measures'][0]['label']
         await update.message.reply_text(
-        f"Added {food_name} to your food. Calories: {calories}"
+        f"Added {food_name} to your food. Calories: {calories}\nTracking Done!", reply_markup=ReplyKeyboardRemove()
         )
     return ConversationHandler.END
 
@@ -141,6 +141,13 @@ async def user_entered_calories(update: Update, context: ContextTypes.DEFAULT_TY
     calories = update.message.text
     calories = int(calories)
     context.user_data['calories'] = calories
+    await update.message.reply_text(
+        "What did you have?"
+    )
+    return GET_FOOD_NAME
+
+async def name_for_calories(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # RECIEVED_CALORIES 
     await update.message.reply_text(
         "What did you have?"
     )
@@ -299,7 +306,7 @@ def main() -> None:
                 ],
             GET_CALORIES: [
                     MessageHandler(filters.Regex("^Yes$"), get_calories),
-                    MessageHandler(filters.Regex("^No$"), store_food_info),
+                    MessageHandler(filters.Regex("^No$"), name_for_calories),
                     MessageHandler(filters.Regex("^Go Back$"), start)
                 ],
             GET_FOOD_NAME: [
